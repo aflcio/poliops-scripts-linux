@@ -224,7 +224,8 @@ def copy_fiscal_year_data(config_path: str,
         logging.basicConfig(level=logging.DEBUG)
     local_directory, remote_specs = get_configuration(config_path)
     logging.debug(f'local directory is {local_directory}')
-    logging.debug('remote specs are ' + remote_specs)
+    logging.debug('remote specs are')
+    logging.debug(remote_specs)
     pathnames_all = []
     conn = get_connection()
     for company, spec in COMPANIES.items():
