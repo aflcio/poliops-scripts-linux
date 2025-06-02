@@ -21,10 +21,11 @@ from datetime import datetime, timedelta
 import logging
 import os.path
 import struct
+import sys
 
-from pssh.clients import SSHClient
-import pyodbc
-import afl.odbc_connections
+from pssh.clients import SSHClient  # type: ignore
+import pyodbc                       # type: ignore
+import afl.odbc_connections         # type: ignore
 
 
 @dataclass
@@ -86,7 +87,7 @@ def copy_fiscal_year_data(config_path: str,
     debugging: are we debugging this run?
     """
 
-    def get_configuration(config_path: str) -> tuple[str, dict[str:str]]:
+    def get_configuration(config_path: str) -> tuple[str, dict[str, str]]:
         """ for the local component, we need only the directory,
         for the remote we need also host and key.
         """
@@ -138,7 +139,8 @@ def copy_fiscal_year_data(config_path: str,
     def create_reports(local_directory: str,
                        conn: pyodbc.Connection,
                        company_name: str,
-                       company_spec: CompanySpec) -> list[str]:
+                       company_spec: CompanySpec,
+                       logger: logging.Logger) -> list[str]:
 
         def make_query_text(company_spec: CompanySpec,
                             report_spec: ReportSpec):
@@ -199,7 +201,7 @@ def copy_fiscal_year_data(config_path: str,
                 retval.append(pathname_out)
                 rows = cur.fetchmany(ROWS_PER_FILE)
                 if len(rows) == 0:
-                    logging.debug(f'exhausted on {company_name},'
+                    logger.debug(f'exhausted on {company_name},'
                                   + f'suffix "{sequence_suffix}"')
                     break
                 if sequence_suffix == '':
@@ -208,7 +210,7 @@ def copy_fiscal_year_data(config_path: str,
                     sequence_suffix = str(int(sequence_suffix) + 1)
         return retval
 
-    def copy_files(remote_specs: dict[str:str],
+    def copy_files(remote_specs: dict[str, str],
                    pathnames: list[str]):
         """ we don't in this case specify the remote directory, since the
         files go to /home/poliops. """
@@ -220,16 +222,22 @@ def copy_fiscal_year_data(config_path: str,
             filename = os.path.split(name)[1]
             client.copy_file(name, filename)
 
-    if debugging:
-        logging.basicConfig(level=logging.DEBUG)
-    local_directory, remote_specs = get_configuration(config_path)
-    logging.debug(f'local directory is {local_directory}')
-    logging.debug('remote specs are')
-    logging.debug(remote_specs)
+    def make_logger(debugging: bool) -> logging.Logger:
+        logger =  logging.getLogger(__name__)
+        handler = logging.StreamHandler(sys.stderr)
+        logger.addHandler(handler)
+        if debugging:
+            logger.setLevel(logging.DEBUG)
+
+        return logger
+    
     pathnames_all = []
     conn = get_connection()
+    local_directory, remote_specs = get_configuration(config_path)
+    logger = make_logger(debugging)
     for company, spec in COMPANIES.items():
-        pathnames_all += create_reports(local_directory, conn, company, spec)
+        pathnames_all += create_reports(local_directory, conn, company, spec,
+                                        logger)
     copy_files(remote_specs, pathnames_all)
 
 
