@@ -234,7 +234,7 @@ def copy_check_files(config_path: str,
                 if name in FIELD_MAPPINGS:
                     row_out[FIELD_MAPPINGS[name]] = row[name]
                 else:
-                    row_out[name] = row[name].replace('\t', ' ')
+                    row_out[name] = row[name].replace('\t', ' ').strip()
             writer.writerow(row_out)
 
         return i + 1
